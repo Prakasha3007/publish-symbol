@@ -35,7 +35,7 @@ jobs:
           SymbolsArtifactName: 'Symbols_$(BuildConfiguration)'
 
       - name: Upload symbols artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: Symbols-${{ env.BuildConfiguration }}
           path: ./  # Since SymbolsPath is ' ', zip file is in repo root
