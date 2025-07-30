@@ -1,0 +1,42 @@
+name: Build and Publish Symbols on Windows
+
+on:
+  workflow_dispatch:
+
+env:
+  BuildConfiguration: Release  # Set your build config here
+
+jobs:
+  build-and-publish-symbols:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: '6.0.100'
+
+      - name: Build project
+        run: dotnet build MySolution.sln --configuration ${{ env.BuildConfiguration }}
+
+      - name: Publish Symbols
+        uses: ./.github/actions/publish-symbols
+        with:
+          SymbolsPath: ' '
+          SearchPattern: '**\\bin\\**\\*.pdb'
+          SymbolsFolder: './'
+          SkipIndexing: 'False'
+          TreatNotIndexingAsWarning: 'False'
+          SymbolsVersion: ' '
+          SymbolsProduct: ' '
+          SymbolsArtifactName: 'Symbols_$(BuildConfiguration)'
+
+      - name: Upload symbols artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: Symbols-${{ env.BuildConfiguration }}
+          path: ./  # Since SymbolsPath is ' ', zip file is in repo root
+          if-no-files-found: error

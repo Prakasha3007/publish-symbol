@@ -1,0 +1,85 @@
+name: 'Publish Symbols'
+description: 'Indexes and publishes PDB symbol files similar to Azure DevOps PublishSymbols@2.'
+inputs:
+  SymbolsPath:
+    description: 'Target path to copy the generated symbols package.'
+    required: false
+    default: ' '
+  SearchPattern:
+    description: 'Pattern to search for PDB files.'
+    required: true
+    default: '**\\bin\\**\\*.pdb'
+  SymbolsFolder:
+    description: 'Root folder where symbol search starts.'
+    required: false
+    default: ' '
+  SkipIndexing:
+    description: 'Set to True to skip source indexing.'
+    required: false
+    default: 'False'
+  TreatNotIndexingAsWarning:
+    description: 'True to only warn if indexing fails.'
+    required: false
+    default: 'False'
+  SymbolsVersion:
+    description: 'Version metadata for the symbols.'
+    required: false
+    default: ' '
+  SymbolsProduct:
+    description: 'Product metadata for the symbols.'
+    required: false
+    default: ' '
+  SymbolsArtifactName:
+    description: 'Artifact name for the packaged symbols.'
+    required: false
+    default: 'Symbols_$(BuildConfiguration)'
+
+runs:
+  using: "composite"
+  steps:
+    - name: Publish Symbols
+      shell: bash
+      run: |
+        set -e
+        echo "Starting Symbol Publish Process..."
+
+        SYMBOLS_PATH="${{ inputs.SymbolsPath }}"
+        SEARCH_PATTERN="${{ inputs.SearchPattern }}"
+        SYMBOLS_FOLDER="${{ inputs.SymbolsFolder }}"
+        SKIP_INDEXING="${{ inputs.SkipIndexing }}"
+        WARN_ON_INDEX_FAIL="${{ inputs.TreatNotIndexingAsWarning }}"
+        SYMBOLS_VERSION="${{ inputs.SymbolsVersion }}"
+        SYMBOLS_PRODUCT="${{ inputs.SymbolsProduct }}"
+        ARTIFACT_NAME="${{ inputs.SymbolsArtifactName }}"
+
+        echo "Searching for PDBs in folder: '${SYMBOLS_FOLDER}' with pattern: '${SEARCH_PATTERN}'"
+        cd "$SYMBOLS_FOLDER" || exit 1
+        PDB_FILES=$(find . -path "$SEARCH_PATTERN" 2>/dev/null || true)
+
+        if [ -z "$PDB_FILES" ]; then
+          echo "No PDB files found!"
+          exit 0
+        fi
+
+        echo "🗂 Found PDB files:"
+        echo "$PDB_FILES"
+
+        # Indexing Placeholder
+        if [ "$SKIP_INDEXING" = "False" ]; then
+          echo "Performing source indexing (placeholder)..."
+        else
+          echo "Skipping source indexing."
+        fi
+
+        ZIP_NAME="${ARTIFACT_NAME}.zip"
+        echo "Creating package: $ZIP_NAME"
+        zip -r "$ZIP_NAME" $PDB_FILES > /dev/null
+
+        if [ -n "$SYMBOLS_PATH" ] && [ "$SYMBOLS_PATH" != " " ]; then
+          echo "Copying package to: $SYMBOLS_PATH"
+          mkdir -p "$SYMBOLS_PATH"
+          cp "$ZIP_NAME" "$SYMBOLS_PATH"/
+        fi
+
+        echo "Symbols packaged successfully as $ZIP_NAME"
+        echo "Metadata → Product: $SYMBOLS_PRODUCT | Version: $SYMBOLS_VERSION"
