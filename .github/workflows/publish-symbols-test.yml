@@ -32,7 +32,7 @@ jobs:
           TreatNotIndexingAsWarning: 'False'
           SymbolsVersion: ' '
           SymbolsProduct: ' '
-          SymbolsArtifactName: 'Symbols_$(BuildConfiguration)'
+          SymbolsArtifactName: 'Symbols_${{ env.BuildConfiguration }}'
 
       - name: Upload symbols artifact
         uses: actions/upload-artifact@v4
