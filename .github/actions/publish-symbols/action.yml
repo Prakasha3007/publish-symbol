@@ -42,7 +42,7 @@ runs:
       shell: pwsh
       run: |
         $ErrorActionPreference = "Stop"
-        Write-Host "🚀 Starting Symbol Publish Process..."
+        Write-Host "Starting Symbol Publish Process..."
 
         $SYMBOLS_PATH = "${{ inputs.SymbolsPath }}"
         $SEARCH_PATTERN = "${{ inputs.SearchPattern }}"
@@ -53,30 +53,30 @@ runs:
         $SYMBOLS_PRODUCT = "${{ inputs.SymbolsProduct }}"
         $ARTIFACT_NAME = "${{ inputs.SymbolsArtifactName }}"
 
-        Write-Host "🔍 Searching for PDBs in folder: $SYMBOLS_FOLDER with pattern: $SEARCH_PATTERN"
+        Write-Host "Searching for PDBs in folder: $SYMBOLS_FOLDER with pattern: $SEARCH_PATTERN"
         Set-Location $SYMBOLS_FOLDER
         $PDB_FILES = Get-ChildItem -Recurse -Include *.pdb
 
         if (-not $PDB_FILES) {
-            Write-Host "⚠️ No PDB files found!"
+            Write-Host "No PDB files found!"
             exit 0
         }
 
-        Write-Host "🗂 Found PDB files:"
+        Write-Host "Found PDB files:"
         $PDB_FILES | ForEach-Object { Write-Host " - $($_.FullName)" }
 
         # === SOURCE INDEXING SECTION ===
         if ($SKIP_INDEXING -eq "False") {
-            Write-Host "📌 Attempting source indexing..."
+            Write-Host "Attempting source indexing..."
             $pdbstr = "${env:ProgramFiles(x86)}\Windows Kits\10\Debuggers\x64\srcsrv\pdbstr.exe"
             if (Test-Path $pdbstr) {
                 foreach ($pdb in $PDB_FILES) {
-                    Write-Host "📄 Checking $pdb for SRCSRV stream..."
+                    Write-Host "Checking $pdb for SRCSRV stream..."
                     $result = & $pdbstr -r -p:$pdb.FullName -s:srcsrv 2>$null
                     if ($LASTEXITCODE -eq 0 -and $result) {
-                        Write-Host "✅ $pdb already contains source server data."
+                        Write-Host "$pdb already contains source server data."
                     } else {
-                        Write-Host "❌ $pdb not indexed. Adding dummy SRCSRV data..."
+                        Write-Host "$pdb not indexed. Adding dummy SRCSRV data..."
                         $tempFile = "$env:TEMP\srcsrv.txt"
                         'SRCSRV: ini ------------------------------------------------
         VERSION=1
@@ -89,34 +89,34 @@ runs:
         SRCSRV: end ------------------------------------------------' | Out-File $tempFile -Encoding ASCII
                                 & $pdbstr -w -p:$pdb.FullName -i:$tempFile -s:srcsrv
                                 if ($LASTEXITCODE -eq 0) {
-                                    Write-Host "✅ SRCSRV indexing added to $pdb."
+                                    Write-Host "SRCSRV indexing added to $pdb."
                                 } else {
                                     if ($WARN_ON_INDEX_FAIL -eq "True") {
-                                        Write-Warning "⚠️ Failed to index $pdb, continuing..."
+                                        Write-Warning "Failed to index $pdb, continuing..."
                                     } else {
-                                        throw "❌ Failed to index $pdb."
+                                        throw "Failed to index $pdb."
                                     }
                                 }
                             }
                         }
                     } else {
-                        Write-Warning "⚠️ pdbstr.exe not found. Skipping real indexing."
+                        Write-Warning "pdbstr.exe not found. Skipping real indexing."
                     }
                 } else {
-                    Write-Host "⏭️ Skipping source indexing as requested."
+                    Write-Host "Skipping source indexing as requested."
                 }
         
                 # === PACKAGE SYMBOLS ===
                 $ZIP_NAME = "$ARTIFACT_NAME.zip"
-                Write-Host "📦 Creating package: $ZIP_NAME"
+                Write-Host "Creating package: $ZIP_NAME"
                 Compress-Archive -Path $PDB_FILES.FullName -DestinationPath $ZIP_NAME -Force
         
                 if ($SYMBOLS_PATH -and $SYMBOLS_PATH -ne " ") {
-                    Write-Host "📂 Copying package to: $SYMBOLS_PATH"
+                    Write-Host "Copying package to: $SYMBOLS_PATH"
                     New-Item -ItemType Directory -Force -Path $SYMBOLS_PATH | Out-Null
                     Copy-Item $ZIP_NAME -Destination $SYMBOLS_PATH -Force
                 }
         
-                Write-Host "✅ Symbols packaged successfully as $ZIP_NAME"
-                Write-Host "ℹ️ Metadata → Product: $SYMBOLS_PRODUCT | Version: $SYMBOLS_VERSION"
+                Write-Host "Symbols packaged successfully as $ZIP_NAME"
+                Write-Host "Metadata → Product: $SYMBOLS_PRODUCT | Version: $SYMBOLS_VERSION"
         
