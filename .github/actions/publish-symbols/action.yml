@@ -79,44 +79,44 @@ runs:
                         Write-Host "❌ $pdb not indexed. Adding dummy SRCSRV data..."
                         $tempFile = "$env:TEMP\srcsrv.txt"
                         'SRCSRV: ini ------------------------------------------------
-VERSION=1
-INDEXVERSION=2
-SRCSRV: variables ------------------------------------------
-SRCSRVTRG=%var2%
-SRCSRVCMD=cmd /c echo %var2%
-SRCSRV: source files ---------------------------------------
-dummy.c*D:\repo\dummy.c
-SRCSRV: end ------------------------------------------------' | Out-File $tempFile -Encoding ASCII
-                        & $pdbstr -w -p:$pdb.FullName -i:$tempFile -s:srcsrv
-                        if ($LASTEXITCODE -eq 0) {
-                            Write-Host "✅ SRCSRV indexing added to $pdb."
-                        } else {
-                            if ($WARN_ON_INDEX_FAIL -eq "True") {
-                                Write-Warning "⚠️ Failed to index $pdb, continuing..."
-                            } else {
-                                throw "❌ Failed to index $pdb."
+        VERSION=1
+        INDEXVERSION=2
+        SRCSRV: variables ------------------------------------------
+        SRCSRVTRG=%var2%
+        SRCSRVCMD=cmd /c echo %var2%
+        SRCSRV: source files ---------------------------------------
+        dummy.c*D:\repo\dummy.c
+        SRCSRV: end ------------------------------------------------' | Out-File $tempFile -Encoding ASCII
+                                & $pdbstr -w -p:$pdb.FullName -i:$tempFile -s:srcsrv
+                                if ($LASTEXITCODE -eq 0) {
+                                    Write-Host "✅ SRCSRV indexing added to $pdb."
+                                } else {
+                                    if ($WARN_ON_INDEX_FAIL -eq "True") {
+                                        Write-Warning "⚠️ Failed to index $pdb, continuing..."
+                                    } else {
+                                        throw "❌ Failed to index $pdb."
+                                    }
+                                }
                             }
                         }
+                    } else {
+                        Write-Warning "⚠️ pdbstr.exe not found. Skipping real indexing."
                     }
+                } else {
+                    Write-Host "⏭️ Skipping source indexing as requested."
                 }
-            } else {
-                Write-Warning "⚠️ pdbstr.exe not found. Skipping real indexing."
-            }
-        } else {
-            Write-Host "⏭️ Skipping source indexing as requested."
-        }
-
-        # === PACKAGE SYMBOLS ===
-        $ZIP_NAME = "$ARTIFACT_NAME.zip"
-        Write-Host "📦 Creating package: $ZIP_NAME"
-        Compress-Archive -Path $PDB_FILES.FullName -DestinationPath $ZIP_NAME -Force
-
-        if ($SYMBOLS_PATH -and $SYMBOLS_PATH -ne " ") {
-            Write-Host "📂 Copying package to: $SYMBOLS_PATH"
-            New-Item -ItemType Directory -Force -Path $SYMBOLS_PATH | Out-Null
-            Copy-Item $ZIP_NAME -Destination $SYMBOLS_PATH -Force
-        }
-
-        Write-Host "✅ Symbols packaged successfully as $ZIP_NAME"
-        Write-Host "ℹ️ Metadata → Product: $SYMBOLS_PRODUCT | Version: $SYMBOLS_VERSION"
-
+        
+                # === PACKAGE SYMBOLS ===
+                $ZIP_NAME = "$ARTIFACT_NAME.zip"
+                Write-Host "📦 Creating package: $ZIP_NAME"
+                Compress-Archive -Path $PDB_FILES.FullName -DestinationPath $ZIP_NAME -Force
+        
+                if ($SYMBOLS_PATH -and $SYMBOLS_PATH -ne " ") {
+                    Write-Host "📂 Copying package to: $SYMBOLS_PATH"
+                    New-Item -ItemType Directory -Force -Path $SYMBOLS_PATH | Out-Null
+                    Copy-Item $ZIP_NAME -Destination $SYMBOLS_PATH -Force
+                }
+        
+                Write-Host "✅ Symbols packaged successfully as $ZIP_NAME"
+                Write-Host "ℹ️ Metadata → Product: $SYMBOLS_PRODUCT | Version: $SYMBOLS_VERSION"
+        
