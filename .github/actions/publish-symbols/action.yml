@@ -1,5 +1,5 @@
 name: 'Publish Symbols'
-description: 'Indexes and publishes PDB symbol files similar to Azure DevOps PublishSymbols@2.'
+description: 'Indexes and publishes PDB symbol files with GitHub raw source mapping, similar to Azure DevOps PublishSymbols@2.'
 
 inputs:
   SymbolsPath:
@@ -9,11 +9,11 @@ inputs:
   SearchPattern:
     description: 'Pattern to search for PDB files.'
     required: true
-    default: '**\\bin\\**\\*.pdb'
+    default: '**\bin\**\*.pdb'
   SymbolsFolder:
     description: 'Root folder where symbol search starts.'
     required: false
-    default: ' '
+    default: './'
   SkipIndexing:
     description: 'Set to True to skip source indexing.'
     required: false
@@ -48,75 +48,87 @@ runs:
         $SEARCH_PATTERN = "${{ inputs.SearchPattern }}"
         $SYMBOLS_FOLDER = "${{ inputs.SymbolsFolder }}"
         $SKIP_INDEXING = "${{ inputs.SkipIndexing }}"
-        $WARN_ON_INDEX_FAIL = "${{ inputs.TreatNotIndexingAsWarning }}"
-        $SYMBOLS_VERSION = "${{ inputs.SymbolsVersion }}"
-        $SYMBOLS_PRODUCT = "${{ inputs.SymbolsProduct }}"
+        $WARN_ON_FAIL = "${{ inputs.TreatNotIndexingAsWarning }}"
+        $VERSION = "${{ inputs.SymbolsVersion }}"
+        $PRODUCT = "${{ inputs.SymbolsProduct }}"
         $ARTIFACT_NAME = "${{ inputs.SymbolsArtifactName }}"
 
-        Write-Host "Searching for PDBs in folder: $SYMBOLS_FOLDER with pattern: $SEARCH_PATTERN"
-        Set-Location $SYMBOLS_FOLDER
-        $PDB_FILES = Get-ChildItem -Recurse -Include *.pdb
+        Write-Host "Searching for PDBs in $SYMBOLS_FOLDER matching $SEARCH_PATTERN"
+        $pdbFiles = Get-ChildItem -Path $SYMBOLS_FOLDER -Recurse -Include *.pdb
 
-        if (-not $PDB_FILES) {
-            Write-Host "No PDB files found!"
-            exit 0
+        if (-not $pdbFiles) {
+          Write-Host "No PDB files found. Exiting."
+          exit 0
         }
 
         Write-Host "Found PDB files:"
-        $PDB_FILES | ForEach-Object { Write-Host " - $($_.FullName)" }
+        $pdbFiles | ForEach-Object { Write-Host " - $($_.FullName)" }
 
-        # === SOURCE INDEXING SECTION ===
+        # Locate pdbstr.exe
+        $pdbstrPaths = @(
+          "C:\Program Files (x86)\Windows Kits\10\Debuggers\x64\srcsrv\pdbstr.exe",
+          "C:\Program Files (x86)\Windows Kits\10\Debuggers\x86\srcsrv\pdbstr.exe"
+        )
+        $pdbstr = $pdbstrPaths | Where-Object { Test-Path $_ } | Select-Object -First 1
+        if (-not $pdbstr) {
+          Write-Warning "pdbstr.exe not found. Real indexing will be skipped."
+          exit 1
+        }
+
         if ($SKIP_INDEXING -eq "False") {
-            Write-Host "Attempting source indexing..."
-            $pdbstr = "${env:ProgramFiles(x86)}\Windows Kits\10\Debuggers\x64\srcsrv\pdbstr.exe"
-            if (Test-Path $pdbstr) {
-                foreach ($pdb in $PDB_FILES) {
-                    Write-Host "Checking $pdb for SRCSRV stream..."
-                    $result = & $pdbstr -r -p:$pdb.FullName -s:srcsrv 2>$null
-                    if ($LASTEXITCODE -eq 0 -and $result) {
-                        Write-Host "$pdb already contains source server data."
-                    } else {
-                        Write-Host "$pdb not indexed. Adding dummy SRCSRV data..."
-                        $tempFile = "$env:TEMP\srcsrv.txt"
-                        'SRCSRV: ini ------------------------------------------------
-        VERSION=1
-        INDEXVERSION=2
-        SRCSRV: variables ------------------------------------------
-        SRCSRVTRG=%var2%
-        SRCSRVCMD=cmd /c echo %var2%
-        SRCSRV: source files ---------------------------------------
-        dummy.c*D:\repo\dummy.c
-        SRCSRV: end ------------------------------------------------' | Out-File $tempFile -Encoding ASCII
-                                & $pdbstr -w -p:$pdb.FullName -i:$tempFile -s:srcsrv
-                                if ($LASTEXITCODE -eq 0) {
-                                    Write-Host "SRCSRV indexing added to $pdb."
-                                } else {
-                                    if ($WARN_ON_INDEX_FAIL -eq "True") {
-                                        Write-Warning "Failed to index $pdb, continuing..."
-                                    } else {
-                                        throw "Failed to index $pdb."
-                                    }
-                                }
-                            }
-                        }
-                    } else {
-                        Write-Warning "pdbstr.exe not found. Skipping real indexing."
-                    }
-                } else {
-                    Write-Host "Skipping source indexing as requested."
-                }
-        
-                # === PACKAGE SYMBOLS ===
-                $ZIP_NAME = "$ARTIFACT_NAME.zip"
-                Write-Host "Creating package: $ZIP_NAME"
-                Compress-Archive -Path $PDB_FILES.FullName -DestinationPath $ZIP_NAME -Force
-        
-                if ($SYMBOLS_PATH -and $SYMBOLS_PATH -ne " ") {
-                    Write-Host "Copying package to: $SYMBOLS_PATH"
-                    New-Item -ItemType Directory -Force -Path $SYMBOLS_PATH | Out-Null
-                    Copy-Item $ZIP_NAME -Destination $SYMBOLS_PATH -Force
-                }
-        
-                Write-Host "Symbols packaged successfully as $ZIP_NAME"
-                Write-Host "Metadata → Product: $SYMBOLS_PRODUCT | Version: $SYMBOLS_VERSION"
-        
+          foreach ($pdb in $pdbFiles) {
+            Write-Host "Indexing $pdb ..."
+            $srcsrvFile = "$($pdb.DirectoryName)\srcsrv.srcsrv"
+
+            # Build SRCSRV file dynamically
+            $repo = $env:GITHUB_REPOSITORY
+            $commit = $env:GITHUB_SHA
+            $header = @"
+SRCSRV: ini ------------------------------------------------
+VERSION=1
+VERCTRL=GitHub
+DATETIME=$(Get-Date -Format "yyyy-MM-dd HH:mm:ss")
+SRCSRV: variables ------------------------------------------
+GIT_REPO=https://raw.githubusercontent.com/$repo/$commit
+SRCSRVTRG=%GIT_REPO%/%var2%
+SRCSRVCMD=
+SRCSRV: source files ---------------------------------------
+"@
+            $footer = "SRCSRV: end ------------------------------------------------"
+
+            # Map source paths → GitHub URLs (assuming sources in repo root)
+            $mappings = @()
+            Get-ChildItem -Path $SYMBOLS_FOLDER -Recurse -Include *.cs,*.cpp,*.h | ForEach-Object {
+              $relPath = $_.FullName.Replace((Resolve-Path $SYMBOLS_FOLDER), "").TrimStart('\').Replace('\','/')
+              $mappings += "$($_.FullName)*$relPath"
+            }
+
+            # Write srcsrv file
+            $header | Out-File $srcsrvFile -Encoding ASCII
+            $mappings | Out-File $srcsrvFile -Encoding ASCII -Append
+            $footer | Out-File $srcsrvFile -Encoding ASCII -Append
+
+            # Inject SRCSRV into the PDB
+            & "$pdbstr" -w -p:"$pdb" -i:"$srcsrvFile" -s:srcsrv
+            if ($LASTEXITCODE -eq 0) {
+              Write-Host "SRCSRV indexing added to $pdb"
+            } else {
+              if ($WARN_ON_FAIL -eq "True") { Write-Warning "Failed to index $pdb"; } else { exit 1 }
+            }
+          }
+        } else {
+          Write-Host "Skipping source indexing as requested."
+        }
+
+        # Package all PDBs
+        $zipName = "$ARTIFACT_NAME.zip"
+        Write-Host "Creating symbols package $zipName"
+        Compress-Archive -Path $pdbFiles.FullName -DestinationPath $zipName -Force
+
+        if ($SYMBOLS_PATH -and $SYMBOLS_PATH -ne " ") {
+          New-Item -ItemType Directory -Force -Path $SYMBOLS_PATH | Out-Null
+          Copy-Item $zipName -Destination $SYMBOLS_PATH -Force
+        }
+
+        Write-Host "Symbols packaged successfully → $zipName"
+        Write-Host "Metadata → Product: $PRODUCT | Version: $VERSION"
