@@ -89,50 +89,50 @@ runs:
             $repo = $env:GITHUB_REPOSITORY
             $commit = $env:GITHUB_SHA
             $header = @"
-          SRCSRV: ini ------------------------------------------------
-          VERSION=1
-          VERCTRL=GitHub
-          DATETIME=$(Get-Date -Format "yyyy-MM-dd HH:mm:ss")
-          SRCSRV: variables ------------------------------------------
-          GIT_REPO=https://raw.githubusercontent.com/$repo/$commit
-          SRCSRVTRG=%GIT_REPO%/%var2%
-          SRCSRVCMD=
-          SRCSRV: source files ---------------------------------------
-          "@
-                      $footer = "SRCSRV: end ------------------------------------------------"
-          
-                      # Map only source files under repository
-                      $mappings = @()
-                      Get-ChildItem -Path $SYMBOLS_FOLDER -Recurse -Include *.cs,*.cpp,*.h | ForEach-Object {
-                        $relPath = $_.FullName.Replace((Resolve-Path $SYMBOLS_FOLDER), "").TrimStart('\').Replace('\','/')
-                        $mappings += "$($_.FullName)*$relPath"
-                      }
-          
-                      $header | Out-File $srcsrvFile -Encoding ASCII
-                      $mappings | Out-File $srcsrvFile -Encoding ASCII -Append
-                      $footer | Out-File $srcsrvFile -Encoding ASCII -Append
-          
-                      # Inject SRCSRV into PDB
-                      & "$pdbstr" -w -p:"$pdb" -i:"$srcsrvFile" -s:srcsrv
-                      if ($LASTEXITCODE -eq 0) {
-                        Write-Host "SRCSRV indexing added to $pdb"
-                      } else {
-                        if ($WARN_ON_FAIL -eq "True") { Write-Warning "Failed to index $pdb"; } else { exit 1 }
-                      }
+        SRCSRV: ini ------------------------------------------------
+        VERSION=1
+        VERCTRL=GitHub
+        DATETIME=$(Get-Date -Format "yyyy-MM-dd HH:mm:ss")
+        SRCSRV: variables ------------------------------------------
+        GIT_REPO=https://raw.githubusercontent.com/$repo/$commit
+        SRCSRVTRG=%GIT_REPO%/%var2%
+        SRCSRVCMD=
+        SRCSRV: source files ---------------------------------------
+        "@
+                    $footer = "SRCSRV: end ------------------------------------------------"
+        
+                    # Map only source files under repository
+                    $mappings = @()
+                    Get-ChildItem -Path $SYMBOLS_FOLDER -Recurse -Include *.cs,*.cpp,*.h | ForEach-Object {
+                      $relPath = $_.FullName.Replace((Resolve-Path $SYMBOLS_FOLDER), "").TrimStart('\').Replace('\','/')
+                      $mappings += "$($_.FullName)*$relPath"
                     }
-                  } else {
-                    Write-Host "Skipping source indexing as requested."
+        
+                    $header | Out-File $srcsrvFile -Encoding ASCII
+                    $mappings | Out-File $srcsrvFile -Encoding ASCII -Append
+                    $footer | Out-File $srcsrvFile -Encoding ASCII -Append
+        
+                    # Inject SRCSRV into PDB
+                    & "$pdbstr" -w -p:"$pdb" -i:"$srcsrvFile" -s:srcsrv
+                    if ($LASTEXITCODE -eq 0) {
+                      Write-Host "SRCSRV indexing added to $pdb"
+                    } else {
+                      if ($WARN_ON_FAIL -eq "True") { Write-Warning "Failed to index $pdb"; } else { exit 1 }
+                    }
                   }
-          
-                  # Package final PDBs
-                  $zipName = "$ARTIFACT_NAME.zip"
-                  Write-Host "Creating symbols package $zipName"
-                  Compress-Archive -Path $pdbFiles.FullName -DestinationPath $zipName -Force
-          
-                  if ($SYMBOLS_PATH -and $SYMBOLS_PATH -ne " ") {
-                    New-Item -ItemType Directory -Force -Path $SYMBOLS_PATH | Out-Null
-                    Copy-Item $zipName -Destination $SYMBOLS_PATH -Force
-                  }
-          
-                  Write-Host "Symbols packaged successfully → $zipName"
-                  Write-Host "Metadata → Product: $PRODUCT | Version: $VERSION"
+                } else {
+                  Write-Host "Skipping source indexing as requested."
+                }
+        
+                # Package final PDBs
+                $zipName = "$ARTIFACT_NAME.zip"
+                Write-Host "Creating symbols package $zipName"
+                Compress-Archive -Path $pdbFiles.FullName -DestinationPath $zipName -Force
+        
+                if ($SYMBOLS_PATH -and $SYMBOLS_PATH -ne " ") {
+                  New-Item -ItemType Directory -Force -Path $SYMBOLS_PATH | Out-Null
+                  Copy-Item $zipName -Destination $SYMBOLS_PATH -Force
+                }
+        
+                Write-Host "Symbols packaged successfully → $zipName"
+                Write-Host "Metadata → Product: $PRODUCT | Version: $VERSION"
