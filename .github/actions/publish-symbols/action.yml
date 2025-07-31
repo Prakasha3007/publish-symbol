@@ -1,5 +1,6 @@
 name: 'Publish Symbols'
 description: 'Indexes and publishes PDB symbol files similar to Azure DevOps PublishSymbols@2.'
+
 inputs:
   SymbolsPath:
     description: 'Target path to copy the generated symbols package.'
@@ -32,7 +33,7 @@ inputs:
   SymbolsArtifactName:
     description: 'Artifact name for the packaged symbols.'
     required: false
-    default: 'Symbols_$(BuildConfiguration)'
+    default: 'Symbols_Release'
 
 runs:
   using: "composite"
@@ -41,7 +42,7 @@ runs:
       shell: pwsh
       run: |
         $ErrorActionPreference = "Stop"
-        Write-Host "Starting Symbol Publish Process..."
+        Write-Host "🚀 Starting Symbol Publish Process..."
 
         $SYMBOLS_PATH = "${{ inputs.SymbolsPath }}"
         $SEARCH_PATTERN = "${{ inputs.SearchPattern }}"
@@ -52,32 +53,30 @@ runs:
         $SYMBOLS_PRODUCT = "${{ inputs.SymbolsProduct }}"
         $ARTIFACT_NAME = "${{ inputs.SymbolsArtifactName }}"
 
-        Write-Host "Searching for PDBs in folder: $SYMBOLS_FOLDER with pattern: $SEARCH_PATTERN"
+        Write-Host "🔍 Searching for PDBs in folder: $SYMBOLS_FOLDER with pattern: $SEARCH_PATTERN"
         Set-Location $SYMBOLS_FOLDER
-        $PDB_FILES = Get-ChildItem -Recurse -Filter *.pdb
+        $PDB_FILES = Get-ChildItem -Recurse -Include *.pdb
 
         if (-not $PDB_FILES) {
-            Write-Host "⚠No PDB files found!"
+            Write-Host "⚠️ No PDB files found!"
             exit 0
         }
 
-        Write-Host "Found PDB files:"
+        Write-Host "🗂 Found PDB files:"
         $PDB_FILES | ForEach-Object { Write-Host " - $($_.FullName)" }
 
         # === SOURCE INDEXING SECTION ===
         if ($SKIP_INDEXING -eq "False") {
-            Write-Host "Attempting source indexing..."
-
+            Write-Host "📌 Attempting source indexing..."
             $pdbstr = "${env:ProgramFiles(x86)}\Windows Kits\10\Debuggers\x64\srcsrv\pdbstr.exe"
             if (Test-Path $pdbstr) {
                 foreach ($pdb in $PDB_FILES) {
-                    Write-Host "Checking $pdb for SRCSRV stream..."
+                    Write-Host "📄 Checking $pdb for SRCSRV stream..."
                     $result = & $pdbstr -r -p:$pdb.FullName -s:srcsrv 2>$null
                     if ($LASTEXITCODE -eq 0 -and $result) {
-                        Write-Host "$pdb already contains source server data."
+                        Write-Host "✅ $pdb already contains source server data."
                     } else {
-                        Write-Host "$pdb not indexed. Adding dummy SRCSRV data..."
-                        # Example: Embed minimal SRCSRV block (replace with real data if needed)
+                        Write-Host "❌ $pdb not indexed. Adding dummy SRCSRV data..."
                         $tempFile = "$env:TEMP\srcsrv.txt"
                         @"
 SRCSRV: ini ------------------------------------------------
@@ -121,4 +120,4 @@ SRCSRV: end ------------------------------------------------
         }
 
         Write-Host "Symbols packaged successfully as $ZIP_NAME"
-        Write-Host "ℹMetadata → Product: $SYMBOLS_PRODUCT | Version: $SYMBOLS_VERSION"
+        Write-Host "Metadata → Product: $SYMBOLS_PRODUCT | Version: $SYMBOLS_VERSION"
