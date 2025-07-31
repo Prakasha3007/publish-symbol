@@ -38,48 +38,48 @@ runs:
   using: "composite"
   steps:
     - name: Publish Symbols
-      shell: bash
+      shell: pwsh
       run: |
-        set -e
-        echo "Starting Symbol Publish Process..."
+        $ErrorActionPreference = "Stop"
+        Write-Host "Starting Symbol Publish Process..."
 
-        SYMBOLS_PATH="${{ inputs.SymbolsPath }}"
-        SEARCH_PATTERN="${{ inputs.SearchPattern }}"
-        SYMBOLS_FOLDER="${{ inputs.SymbolsFolder }}"
-        SKIP_INDEXING="${{ inputs.SkipIndexing }}"
-        WARN_ON_INDEX_FAIL="${{ inputs.TreatNotIndexingAsWarning }}"
-        SYMBOLS_VERSION="${{ inputs.SymbolsVersion }}"
-        SYMBOLS_PRODUCT="${{ inputs.SymbolsProduct }}"
-        ARTIFACT_NAME="${{ inputs.SymbolsArtifactName }}"
+        $SYMBOLS_PATH = "${{ inputs.SymbolsPath }}"
+        $SEARCH_PATTERN = "${{ inputs.SearchPattern }}"
+        $SYMBOLS_FOLDER = "${{ inputs.SymbolsFolder }}"
+        $SKIP_INDEXING = "${{ inputs.SkipIndexing }}"
+        $WARN_ON_INDEX_FAIL = "${{ inputs.TreatNotIndexingAsWarning }}"
+        $SYMBOLS_VERSION = "${{ inputs.SymbolsVersion }}"
+        $SYMBOLS_PRODUCT = "${{ inputs.SymbolsProduct }}"
+        $ARTIFACT_NAME = "${{ inputs.SymbolsArtifactName }}"
 
-        echo "Searching for PDBs in folder: '${SYMBOLS_FOLDER}' with pattern: '${SEARCH_PATTERN}'"
-        cd "$SYMBOLS_FOLDER" || exit 1
-        PDB_FILES=$(find . -path "$SEARCH_PATTERN" 2>/dev/null || true)
+        Write-Host "Searching for PDBs in folder: $SYMBOLS_FOLDER with pattern: $SEARCH_PATTERN"
 
-        if [ -z "$PDB_FILES" ]; then
-          echo "No PDB files found!"
-          exit 0
-        fi
+        Set-Location $SYMBOLS_FOLDER
+        $PDB_FILES = Get-ChildItem -Recurse -Include *.pdb
 
-        echo "🗂 Found PDB files:"
-        echo "$PDB_FILES"
+        if (-not $PDB_FILES) {
+            Write-Host "No PDB files found!"
+            exit 0
+        }
 
-        # Indexing Placeholder
-        if [ "$SKIP_INDEXING" = "False" ]; then
-          echo "Performing source indexing (placeholder)..."
-        else
-          echo "Skipping source indexing."
-        fi
+        Write-Host "Found PDB files:"
+        $PDB_FILES | ForEach-Object { Write-Host $_.FullName }
 
-        ZIP_NAME="${ARTIFACT_NAME}.zip"
-        echo "Creating package: $ZIP_NAME"
-        zip -r "$ZIP_NAME" $PDB_FILES > /dev/null
+        if ($SKIP_INDEXING -eq "False") {
+            Write-Host "Performing source indexing (placeholder)..."
+        } else {
+            Write-Host "Skipping source indexing."
+        }
 
-        if [ -n "$SYMBOLS_PATH" ] && [ "$SYMBOLS_PATH" != " " ]; then
-          echo "Copying package to: $SYMBOLS_PATH"
-          mkdir -p "$SYMBOLS_PATH"
-          cp "$ZIP_NAME" "$SYMBOLS_PATH"/
-        fi
+        $ZIP_NAME = "$ARTIFACT_NAME.zip"
+        Write-Host "Creating package: $ZIP_NAME"
+        Compress-Archive -Path $PDB_FILES.FullName -DestinationPath $ZIP_NAME -Force
 
-        echo "Symbols packaged successfully as $ZIP_NAME"
-        echo "Metadata → Product: $SYMBOLS_PRODUCT | Version: $SYMBOLS_VERSION"
+        if ($SYMBOLS_PATH -and $SYMBOLS_PATH -ne " ") {
+            Write-Host "Copying package to: $SYMBOLS_PATH"
+            New-Item -ItemType Directory -Force -Path $SYMBOLS_PATH | Out-Null
+            Copy-Item $ZIP_NAME -Destination $SYMBOLS_PATH -Force
+        }
+
+        Write-Host "Symbols packaged successfully as $ZIP_NAME"
+        Write-Host "Metadata → Product: $SYMBOLS_PRODUCT | Version: $SYMBOLS_VERSION"
