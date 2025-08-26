@@ -18,8 +18,8 @@ jobs:
         run: dotnet build MySolution.sln --configuration ${{ env.BuildConfiguration }}
 
       - name: Publish Symbols
-        #uses: ./.github/actions/publish-symbols
-        uses: ./github/actions/publish_v2
+        uses: ./.github/actions/publish-symbols
+        #uses: ./github/actions/publish_v2
         with:
           SymbolsPath: ' '
           SearchPattern: '**\\bin\\**\\*.pdb'
