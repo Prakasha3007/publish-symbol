@@ -18,7 +18,6 @@ jobs:
         run: dotnet build MySolution.sln --configuration ${{ env.BuildConfiguration }}
 
       - name: Publish Symbols
-        #uses: ./.github/actions/publish-symbols
         uses: ./github/actions/publish_v1
         with:
           SymbolsPath: ' '
