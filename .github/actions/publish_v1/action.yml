@@ -96,16 +96,16 @@ runs:
             $commit = $env:GITHUB_SHA
 
             $header = @"
-            SRCSRV: ini ------------------------------------------------
-            VERSION=1
-            VERCTRL=GitHub
-            DATETIME=$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')
-            SRCSRV: variables ------------------------------------------
-            GIT_REPO=https://raw.githubusercontent.com/$repo/$commit
-            SRCSRVTRG=%GIT_REPO%/%var2%
-            SRCSRVCMD=
-            SRCSRV: source files ---------------------------------------
-            "@
+        SRCSRV: ini ------------------------------------------------
+        VERSION=1
+        VERCTRL=GitHub
+        DATETIME=$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')
+        SRCSRV: variables ------------------------------------------
+        GIT_REPO=https://raw.githubusercontent.com/$repo/$commit
+        SRCSRVTRG=%GIT_REPO%/%var2%
+        SRCSRVCMD=
+        SRCSRV: source files ---------------------------------------
+        "@
 
             $footer = "SRCSRV: end ------------------------------------------------"
 
