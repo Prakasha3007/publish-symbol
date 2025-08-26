@@ -148,5 +148,5 @@ SRCSRV: source files ---------------------------------------
           Copy-Item $zipName -Destination $SYMBOLS_PATH -Force
         }
 
-        Write-Host "Symbols packaged successfully → $zipName"
-        Write-Host "Metadata → Product: $PRODUCT | Version: $VERSION"
+        Write-Host "Symbols packaged successfully $zipName"
+        Write-Host "Metadata Product: $PRODUCT | Version: $VERSION"
