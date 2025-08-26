@@ -19,7 +19,7 @@ jobs:
 
       - name: Publish Symbols
         #uses: ./.github/actions/publish-symbols
-        uses: ./github/actions/publish_v2
+        uses: ./github/actions/publish_v1
         with:
           SymbolsPath: ' '
           SearchPattern: '**\\bin\\**\\*.pdb'
